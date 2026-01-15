@@ -1,3 +1,5 @@
+#module load r-light
+
 library(dplyr)
 library(tidyverse)
 library(tidyr)
@@ -11,7 +13,7 @@ data <- read.csv("joined_filtered.txt", sep = "\t", stringsAsFactors = FALSE, he
 # put the header back
 
 header <- paste(readLines("collapse_isoforms.flnc_count_tab.txt", n = 1),readLines("../DG_kinnexmRNA_DEMUXED_Full_Length_Non_Concensus_HQ_transcript/pigeon.classification.txt", n = 1), sep = '\t')
-header <- strsplit(header1, "\t")[[1]]
+header <- strsplit(header, "\t")[[1]]
 header <- header[-8]
 colnames(data) <- header
 
@@ -21,6 +23,8 @@ length(unique(data[,"associated_transcript"]))
 # if by 5, 18676, if by 10 - 15187
 
 df <- data [, c("id", "BioSample_1", "BioSample_2" , "BioSample_3" , "BioSample_4" , "BioSample_5" , "BioSample_6" , "structural_category", "associated_gene", "associated_transcript" )]
+
+
 
 
 # exploratory analysis, we will look at the distribution of the structural category across samples
@@ -196,12 +200,27 @@ df$p_value <- apply(df, 1, function(row) {
 
 df$log2FC <- log2(rowMeans(df[, c("BioSample_4", "BioSample_5", "BioSample_6")])/rowMeans(df[, c("BioSample_1", "BioSample_2", "BioSample_3")]))
 
+
+# adjusted pval
+
+df$padj <- p.adjust(df$p_value, method = "fdr")
+
 # volcano plot
 
 volcano_df <- data.frame(
   gene = df$id,
   log2FC = df$log2FC,
-  p_value = df$p_value)
+  p_value = df$p_value,
+  padj = df$padj)
+
+n_up <- volcano_df %>%
+  filter(log2FC > 1, p_value < 0.05) %>%
+  nrow()
+
+n_down <- volcano_df %>%
+  filter(log2FC < -1, p_value < 0.05) %>%
+  nrow()
+
 
 volcano_df$significant <- (abs(volcano_df$log2FC) > 1) & (volcano_df$p_value < 0.05)
 volcano <- ggplot(volcano_df, aes(x = log2FC, y = -log10(p_value))) +
@@ -210,13 +229,66 @@ volcano <- ggplot(volcano_df, aes(x = log2FC, y = -log10(p_value))) +
   scale_color_manual(values = c("grey", "red")) +
   geom_hline(yintercept = -log10(0.05), linetype="dashed", color="blue") +
   geom_vline(xintercept = c(-1,1), linetype="dashed", color="blue") +
+annotate(
+    "text",
+    x = 7, 
+    y = 5,
+    label = paste0("n = ", n_up),
+    hjust = 1,
+    size = 4
+  ) +
+  annotate(
+    "text",
+    x = -7,
+    y = 5, 
+    label = paste0("n = ", n_down),
+    hjust = 0,
+    size = 4
+  ) +
   theme_minimal()
 ggsave("volcano.png", plot = volcano, width = 8, height = 6, dpi = 300)
 
 
+## P Adjusted
+n_up <- volcano_df %>%
+  filter(log2FC > 1, padj < 0.05) %>%
+  nrow()
+
+n_down <- volcano_df %>%
+  filter(log2FC < -1, padj < 0.05) %>%
+  nrow()
+
+
+volcano_df$significant <- (abs(volcano_df$log2FC) > 1) & (volcano_df$padj < 0.05)
+volcano <- ggplot(volcano_df, aes(x = log2FC, y = -log10(padj))) +
+  geom_point(aes(color = significant)) +
+  scale_y_continuous(limits = c(0, 8))+
+  scale_color_manual(values = c("grey", "red")) +
+  geom_hline(yintercept = -log10(0.05), linetype="dashed", color="blue") +
+  geom_vline(xintercept = c(-1,1), linetype="dashed", color="blue") +
+annotate(
+    "text",
+    x = 7, 
+    y = 5,
+    label = paste0("n = ", n_up),
+    hjust = 1,
+    size = 4
+  ) +
+  annotate(
+    "text",
+    x = -7,
+    y = 5, 
+    label = paste0("n = ", n_down),
+    hjust = 0,
+    size = 4
+  ) +
+  theme_minimal()
+
+
+ggsave("volcano_adj.png", plot = volcano, width = 8, height = 6, dpi = 300)
 
 # Expanding on the significantly changed data (i.e red dots on volcano plot right)
-df_sig <- df[!is.na(df$p_value) & df$p_value < 0.05 & (df$log2FC > 1 |df$log2FC < -1), ]
+df_sig <- df[!is.na(df$padj) & df$padj < 0.05 & (df$log2FC > 1 |df$log2FC < -1), ]
 
 dim(df_sig)
 > dim(df_sig)
@@ -274,8 +346,8 @@ stacked_sig <- ggplot(df_sig_long, aes(x = Sample, y = Count, fill = structural_
 ggsave("stacked_sig_crude.png", plot = stacked_sig, width = 8, height = 6, dpi = 300)
 
 # we want to look at specifically the up reg'ed ones 
-
-df_sig_up <- df[!is.na(df$p_value) & df$p_value < 0.05 & (df$log2FC > 1), ]
+colors_scheme <- brewer.pal(12, "Paired")
+df_sig_up <- df[!is.na(df$padj) & df$padj < 0.05 & (df$log2FC > 1), ]
 
 df_sig_long <- df_sig_up %>%
   pivot_longer(
@@ -292,9 +364,21 @@ stacked_sig <- ggplot(df_sig_long, aes(x = Sample, y = Count, fill = structural_
 
 ggsave("stacked_sig_up.png", plot = stacked_sig, width = 8, height = 6, dpi = 300)
 
+
+# here is a normalized to 100% 
+stacked_sig <- ggplot(df_sig_long, aes(x = Sample, y = Count, fill = structural_category)) +
+  geom_bar(stat = "identity",position = "fill") +
+  scale_fill_manual(values = colors_scheme) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Sample", y = "Percentage", fill = "Category") +
+  theme_minimal()
+
+ggsave("stacked_sig_up_norm.png", plot = stacked_sig, width = 8, height = 6, dpi = 300)
+
+
 # and down
 
-df_sig_down <- df[!is.na(df$p_value) & df$p_value < 0.05 & (df$log2FC < -1), ]
+df_sig_down <- df[!is.na(df$padj) & df$padj < 0.05 & (df$log2FC < -1), ]
 
 df_sig_long <- df_sig_down %>%
   pivot_longer(
@@ -311,4 +395,13 @@ stacked_sig <- ggplot(df_sig_long, aes(x = Sample, y = Count, fill = structural_
 
 ggsave("stacked_sig_down.png", plot = stacked_sig, width = 8, height = 6, dpi = 300)
 
+
+stacked_sig <- ggplot(df_sig_long, aes(x = Sample, y = Count, fill = structural_category)) +
+  geom_bar(stat = "identity",position = "fill") +
+  scale_fill_manual(values = colors_scheme) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Sample", y = "Percentage", fill = "Category") +
+  theme_minimal()
+
+ggsave("stacked_sig_down_norm.png", plot = stacked_sig, width = 8, height = 6, dpi = 300)
 
