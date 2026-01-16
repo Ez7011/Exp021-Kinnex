@@ -202,8 +202,11 @@ df$log2FC <- log2(rowMeans(df[, c("BioSample_4", "BioSample_5", "BioSample_6")])
 
 
 # adjusted pval
+# first i need to remove all the rows that has pval = NA  or =1 becuase that skews the p adj
 
-df$padj <- p.adjust(df$p_value, method = "fdr")
+df_clean <- df[!is.na(df$p_val), ]
+df_clean <- df <- df[df$p_value != 1, ]
+df_clean$padj <- p.adjust(df_clean$p_value, method = "fdr")
 
 # volcano plot
 
@@ -250,6 +253,15 @@ ggsave("volcano.png", plot = volcano, width = 8, height = 6, dpi = 300)
 
 
 ## P Adjusted
+# use df_clean
+
+volcano_df <- data.frame(
+  gene = df_clean$id,
+  log2FC = df_clean$log2FC,
+  p_value = df_clean$p_value,
+  padj = df_clean$padj)
+
+
 n_up <- volcano_df %>%
   filter(log2FC > 1, padj < 0.05) %>%
   nrow()
