@@ -1,0 +1,10 @@
+# in this file I want to show some possible ways to analyse the differential expression once i collapses all the read to their transncripts onl ytaking account of the structural category/trasncript id/gene
+
+> df_collapsed <- df_clean %>%
++   group_by(across(8:10)) %>%           # group by V8, V9, V10
++   summarise(
++     across(V2:V7, ~ sum(as.numeric(.), na.rm = TRUE)),  # sum counts safely
++     ids = paste(.data$V1, collapse = ","),              # concatenate IDs from column 1
++     .groups = "drop"
++   )
+> head(df_collapsed)
