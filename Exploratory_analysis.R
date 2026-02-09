@@ -5,6 +5,7 @@ library(tidyverse)
 library(tidyr)
 library(ggplot2)
 library(RColorBrewer)
+library(DESeq2)
 
 #load file
 
@@ -22,8 +23,24 @@ length(unique(data[,"associated_gene"]))
 length(unique(data[,"associated_transcript"]))
 # if by 5, 18676, if by 10 - 15187
 
-df <- data [, c("id", "BioSample_1", "BioSample_2" , "BioSample_3" , "BioSample_4" , "BioSample_5" , "BioSample_6" , "structural_category", "associated_gene", "associated_transcript" )]
+df_raw <- data [, c("id", "BioSample_1", "BioSample_2" , "BioSample_3" , "BioSample_4" , "BioSample_5" , "BioSample_6" , "structural_category", "associated_gene", "associated_transcript" )]
 
+counts <- df_raw[, 2:7]
+rownames(counts) <- df_raw$id
+colData <- data.frame(
+  row.names = colnames(counts),
+  condition = c("WT", "WT", "WT", "TX", "TX", "TX")
+)
+
+dds <- DESeqDataSetFromMatrix(
+  countData = counts,
+  colData = colData,
+  design = ~ condition
+)
+
+dds <- DESeq(dds)
+
+df <- as.data.frame(counts(dds, normalized = TRUE))
 
 
 
