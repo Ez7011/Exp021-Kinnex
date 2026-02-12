@@ -228,10 +228,10 @@ df_clean$padj <- p.adjust(df_clean$p_value, method = "fdr")
 # volcano plot
 
 volcano_df <- data.frame(
-  gene = df$id,
-  log2FC = df$log2FC,
-  p_value = df$p_value,
-  padj = df$padj)
+  gene = df_clean$id,
+  log2FC = df_clean$log2FC,
+  p_value = df_clean$p_value,
+  padj = df_clean$padj)
 
 n_up <- volcano_df %>%
   filter(log2FC > 1, p_value < 0.05) %>%
