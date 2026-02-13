@@ -26,23 +26,16 @@ length(unique(data[,"associated_transcript"]))
 df_raw <- data [, c("id", "BioSample_1", "BioSample_2" , "BioSample_3" , "BioSample_4" , "BioSample_5" , "BioSample_6" , "structural_category", "associated_gene", "associated_transcript" )]
 
 counts <- df_raw[, 2:7]
-rownames(counts) <- df_raw$id
-colData <- data.frame(
-  row.names = colnames(counts),
-  condition = c("WT", "WT", "WT", "TX", "TX", "TX")
-)
 
-dds <- DESeqDataSetFromMatrix(
-  countData = counts,
-  colData = colData,
-  design = ~ condition
-)
+condition = c("c","c","c","t","t","t")    
+condition = data.frame(condition)
 
+dds <- DESeqDataSetFromMatrix(countData=counts,colData=condition,tidy=FALSE,design= ~condition)
 dds <- DESeq(dds)
 
-df <- as.data.frame(counts(dds, normalized = TRUE))
+res = results(dds, contrast=c("condition","t","c"))
 
-
+df <- cbind (res,data)
 
 # exploratory analysis, we will look at the distribution of the structural category across samples
 
@@ -234,15 +227,15 @@ volcano_df <- data.frame(
   padj = df_clean$padj)
 
 n_up <- volcano_df %>%
-  filter(log2FC > 1, p_value < 0.05) %>%
+  filter(log2FC > 1, padj< 0.05) %>%
   nrow()
 
 n_down <- volcano_df %>%
-  filter(log2FC < -1, p_value < 0.05) %>%
+  filter(log2FC < -1, padj < 0.05) %>%
   nrow()
 
 
-volcano_df$significant <- (abs(volcano_df$log2FC) > 1) & (volcano_df$p_value < 0.05)
+volcano_df$significant <- (abs(volcano_df$log2FC) > 1) & (volcano_df$padj < 0.05)
 volcano <- ggplot(volcano_df, aes(x = log2FC, y = -log10(p_value))) +
   geom_point(aes(color = significant)) +
   scale_y_continuous(limits = c(0, 8))+
