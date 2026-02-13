@@ -94,7 +94,9 @@ join -t $'\t' sorted_flnc.txt sorted_class.txt > joined.txt
 
 # i want to keep all the lines that have no zero counts and at least one samples that has more than 5 reads
 #   HERE IS WHERE YOU CHANGE THRESHOLDS  
-awk -F'\t' '($2>5 || $3>5 || $4>5 || $5>5 || $6>5 || $7>5) && ($2*$3*$4*$5*$6*$7 !=0 ) ' joined.txt > joined_filtered.txt
+# awk -F'\t' '($2>5 || $3>5 || $4>5 || $5>5 || $6>5 || $7>5) && ($2*$3*$4*$5*$6*$7 !=0 ) ' joined.txt > joined_filtered.txt
+awk -F'\t' '((($2+$3+$4)/3) > 5) || ((($5+$6+$7)/3) > 5) ' joined.txt > joined_filtered.txt
+
 
 # this will print out all the classes for these trasncripts:
 awk -F'\t' '{print $12}' joined_filtered.txt | sort | uniq
@@ -103,3 +105,4 @@ awk -F'\t' '{print $12}' joined_filtered.txt | sort | uniq
 
 
 # The further analysis is done in R see next script
+
